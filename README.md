@@ -7,11 +7,13 @@ A simple terminal tool that helps you browse and export conversations from your 
 
 ## Quick Start
 
-1. Put the tool in the same folder as your Claude data export (`data-YYYY-MM-DD-HH-MM-SS/`)
-2. Run `./claude_chat_browser.py`
-3. Browse your conversations with arrow keys
-4. Press Enter to select a conversation
-5. Press Y to export to Markdown and JSON
+1. Go to your [Claude account settings and export your data.](https://claude.ai/settings/account)
+2. Once you receive the email, download the zip file.
+3. Unzip the file and place the extracted folder in the same directory as this tool.
+4. Run the tool with `./claude_chat_browser.py`
+5. Browse your conversations with arrow keys
+6. Press Enter to select a conversation
+7. Press Y to export to Markdown and JSON.
 
 ## What You Can Do
 
