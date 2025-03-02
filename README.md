@@ -1,67 +1,67 @@
-# Claude Chat History Browser
+# Claude Chat Export Browser
+Export your Claude Desktop chats to Markdown and JSON
 
-A command-line tool for browsing, searching, and exporting Claude AI assistant conversations from data exports.
+A simple terminal tool that helps you browse and export conversations from your Claude AI assistant data exports. Get your chat history in both human-readable Markdown and structured JSON formats.
 
-![Claude Chat Browser Screenshot](https://via.placeholder.com/800x450.png?text=Claude+Chat+Browser+Screenshot)
+![Claude Chat Export Browser Screenshot](images/claude_chat_exporter.png)
 
-## Features
+## Quick Start
 
-- **Browse Conversations**: Navigate through your Claude chat history with an easy-to-use interface
-- **Pagination**: View conversations 10 at a time with simple navigation
-- **Export Options**: Export conversations in both Markdown and JSON formats
-- **Chronological Sorting**: Messages are automatically sorted by timestamp for readability
-- **Preview Content**: View conversation details before exporting
-- **No Dependencies**: Uses only Python standard libraries
+1. Put the tool in the same folder as your Claude data export (`data-YYYY-MM-DD-HH-MM-SS/`)
+2. Run `./claude_chat_browser.py`
+3. Browse your conversations with arrow keys
+4. Press Enter to select a conversation
+5. Press Y to export to Markdown and JSON
 
-## Installation
+## What You Can Do
 
-No installation required! Simply:
+- **Browse All Conversations**: Newest conversations appear first
+- **See Previews**: View the first few messages before exporting
+- **Export Easily**: Get both Markdown and JSON versions of any conversation
+- **Read Chronologically**: Exported conversations are organized by time with timestamps
+- **No Extra Software Needed**: Uses only standard Python libraries
 
-1. Download this repository
-2. Make sure you have a Claude data export in the same directory (format: `data-YYYY-MM-DD-HH-MM-SS/`)
-3. Ensure you have Python 3.6+ installed
+## How to Use
 
-## Usage
+### Step 1: Get Your Claude Data
+
+1. In Claude Desktop app, go to Settings → Export Data
+2. Download and extract the ZIP file
+3. Place the extracted folder (like `data-2025-03-02-15-59-23`) in the same directory as this tool
+
+### Step 2: Run the Browser
 
 ```bash
-# Make the script executable (if needed)
+# Make executable (first time only)
 chmod +x claude_chat_browser.py
 
-# Run the browser
+# Start the browser
 ./claude_chat_browser.py
 ```
 
-### Navigation Controls
+### Step 3: Navigate and Export
 
-- **Up/Down Arrow Keys**: Navigate through conversations
-- **Left/Right Arrow Keys**: Change pages
-- **Enter**: Select a conversation and view details
-- **Y/N**: Confirm or cancel export
-- **Q**: Quit the browser
+- **Navigate**: Use ↑/↓ arrows to select conversations
+- **Change Pages**: Use ←/→ arrows to move between pages (10 conversations per page)
+- **View Details**: Press Enter to see conversation details
+- **Export**: Press Y when prompted to save as Markdown and JSON
+- **Exit**: Press Q to quit
 
-## Export Format
+### What You Get
 
-Conversations are exported to the `exports/` directory with two files for each conversation:
+When you export a conversation, two files are created in the `exports/` folder:
 
-1. **Markdown (.md)**: Human-readable format with timestamps and formatted messages
-2. **JSON (.json)**: Complete conversation data in machine-readable format
+- **[date]_[name].md**: Easy-to-read Markdown with all messages in order
+- **[date]_[name].json**: Complete structured data you can use in other tools
 
-## How to Get Claude Data Exports
+## Tips
 
-1. In the Claude Desktop app or web interface, go to your account settings
-2. Look for "Export Data" or similar option
-3. Download the ZIP file and extract it
-4. Place the extracted folder (named like `data-2025-03-02-15-59-23`) in the same directory as this tool
+- The tool automatically finds the most recent Claude data export in your directory
+- Exported conversations have timestamps so you can see when each message was sent
+- Use the JSON exports if you want to process your conversations with other tools
 
-## Development
-
-Want to contribute or extend the functionality? Check out the `CLAUDE.md` file for development guidelines and code style information.
+For developer information, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ## License
 
 MIT License - See LICENSE file for details.
-
-## Acknowledgments
-
-- Built for the Claude AI assistant community
-- Inspired by the need for better ways to browse and reference past conversations

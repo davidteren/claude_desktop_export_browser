@@ -176,20 +176,22 @@ class ClaudeChatBrowser:
             stdscr.clear()
             
             # Display header
-            header = "CLAUDE CHAT BROWSER"
+            header = "CLAUDE CHAT EXPORT BROWSER"
+            subheader = "Export your Claude Desktop chats"
             stdscr.addstr(0, (width - len(header)) // 2, header, curses.color_pair(2) | curses.A_BOLD)
+            stdscr.addstr(1, (width - len(subheader)) // 2, subheader)
             
             # Display current page info
             total_pages = self.get_total_pages()
             page_info = f"Page {self.current_page + 1}/{total_pages}"
-            stdscr.addstr(1, (width - len(page_info)) // 2, page_info)
+            stdscr.addstr(2, (width - len(page_info)) // 2, page_info)
             
             # Get conversations for current page
             page_conversations = self.get_current_page_conversations()
             
             # Display conversations
             for i, conv in enumerate(page_conversations):
-                y = i + 3  # Start from line 3
+                y = i + 4  # Start from line 4 (after header, subheader, and page info)
                 if y >= height - 3:  # Leave space for footer
                     break
                     
@@ -246,8 +248,10 @@ class ClaudeChatBrowser:
         stdscr.clear()
         
         # Display header
-        title = "CONVERSATION DETAILS"
+        title = "CLAUDE CHAT EXPORT BROWSER"
+        subtitle = "CONVERSATION DETAILS"
         stdscr.addstr(0, (width - len(title)) // 2, title, curses.color_pair(2) | curses.A_BOLD)
+        stdscr.addstr(1, (width - len(subtitle)) // 2, subtitle, curses.A_BOLD)
         
         # Display conversation info
         name = conversation.get('name', '') or "Untitled conversation"
@@ -288,7 +292,7 @@ class ClaudeChatBrowser:
                 messages.append(f"{sender} {text}")
         
         # Display conversation info and preview
-        y = 2
+        y = 3  # Start at line 3 (after headers)
         for line in info:
             stdscr.addstr(y, 2, line)
             y += 1
