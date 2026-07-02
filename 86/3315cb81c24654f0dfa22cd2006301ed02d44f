@@ -1,0 +1,21 @@
+claude_chat_browser.py
+  s_9242a8b4d968b3::t_c3a3cbbc68384a 355-362,365,367-371,374-376,378-379
+README.md
+  s_9242a8b4d968b3::t_925518c22e37c4 32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.8",
+  "base_commit_sha": "863315cb81c24654f0dfa22cd2006301ed02d44f",
+  "prompts": {},
+  "sessions": {
+    "s_9242a8b4d968b3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7691eaba-7810-4c91-b978-2f6cb7b72e1b",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "davidteren <drteren@gmail.com>"
+    }
+  }
+}
