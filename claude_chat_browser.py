@@ -352,26 +352,31 @@ class ClaudeChatBrowser:
 
 
 def find_data_directory():
-    """Find the most recent Claude data export directory."""
+    """Find the most recent Claude data export directory.
+
+    A valid export is any ``data-*`` directory containing ``conversations.json``.
+    We deliberately do not parse the directory name: Anthropic's export naming
+    has changed over time (e.g. ``data-2025-03-02-15-59-23`` vs
+    ``data-<uuid>-<timestamp>-<hash>-batch-0000``), so we match on the presence
+    of the conversations file and sort by its modification time instead.
+    """
     base_dir = os.path.dirname(os.path.abspath(__file__))
     data_dirs = []
-    
-    # Look for directories that match the pattern data-YYYY-MM-DD-HH-MM-SS
+
     for item in os.listdir(base_dir):
-        if item.startswith('data-') and os.path.isdir(os.path.join(base_dir, item)):
-            # Extract date from directory name
-            try:
-                date_str = item[5:]  # Remove 'data-' prefix
-                date = datetime.datetime.strptime(date_str, '%Y-%m-%d-%H-%M-%S')
-                data_dirs.append((date, item))
-            except:
-                continue
-    
+        path = os.path.join(base_dir, item)
+        conversations = os.path.join(path, "conversations.json")
+        if item.startswith('data-') and os.path.isdir(path) and os.path.isfile(conversations):
+            data_dirs.append((os.path.getmtime(conversations), item))
+
     if not data_dirs:
         print("Error: No Claude data export directories found.")
+        print(f"Looked in: {base_dir}")
+        print("Expected a 'data-*' folder containing conversations.json "
+              "(the unzipped Claude export).")
         sys.exit(1)
-        
-    # Sort by date (most recent first) and return the path
+
+    # Sort by conversations.json mtime (most recent first) and return the path
     data_dirs.sort(reverse=True)
     return os.path.join(base_dir, data_dirs[0][1])
 
