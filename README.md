@@ -29,7 +29,7 @@ A simple terminal tool that helps you browse and export conversations from your 
 
 1. In Claude Desktop app, go to Settings → Export Data
 2. Download and extract the ZIP file
-3. Place the extracted folder (like `data-2025-03-02-15-59-23`) in the same directory as this tool
+3. Place the extracted folder (a `data-...` folder containing `conversations.json`) in the same directory as this tool
 
 ### Step 2: Run the Browser
 
