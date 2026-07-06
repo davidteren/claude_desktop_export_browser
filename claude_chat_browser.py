@@ -1,11 +1,40 @@
 #!/usr/bin/env python3
 import json
 import os
+import re
 import sys
 import datetime
 import shutil
 from typing import List, Dict, Any, Optional
 import curses
+
+# Placeholder the Claude export writes into the flattened `text` field wherever
+# a non-text block (tool use, tool result, thinking) appeared in the message.
+UNSUPPORTED_BLOCK_TEXT = "This block is not supported on your current device yet."
+
+
+def get_message_text(msg: Dict[str, Any]) -> str:
+    """Extract the readable text of a message.
+
+    Prefers the structured `content` block list (joining the text blocks and
+    skipping tool-use/tool-result blocks) over the flattened `text` field,
+    which renders every non-text block as an "unsupported" placeholder.
+    Falls back to `text` with those placeholders stripped.
+    """
+    parts = [
+        item.get('text', '').strip()
+        for item in msg.get('content') or []
+        if item.get('type') == 'text' and item.get('text', '').strip()
+    ]
+    if parts:
+        return '\n\n'.join(parts)
+
+    text = msg.get('text', '')
+    # Remove placeholders, including ones the export wrapped in code fences
+    text = re.sub(r"```\s*" + re.escape(UNSUPPORTED_BLOCK_TEXT) + r"\s*```", "", text)
+    text = text.replace(UNSUPPORTED_BLOCK_TEXT, "")
+    return text.strip()
+
 
 class ClaudeChatBrowser:
     def __init__(self, data_dir: str):
@@ -115,15 +144,8 @@ class ClaudeChatBrowser:
         # Add messages
         for msg in export_conversation.get('chat_messages', []):
             sender = "**User**:" if msg.get('sender') == 'human' else "**Claude**:"
-            text = msg.get('text', '')
-            
-            # If no text directly available, try to get it from content
-            if not text and 'content' in msg:
-                for content_item in msg['content']:
-                    if content_item.get('type') == 'text':
-                        text = content_item.get('text', '')
-                        break
-            
+            text = get_message_text(msg)
+
             # Include timestamp if available
             timestamp = ""
             if msg.get('created_at'):
@@ -276,15 +298,8 @@ class ClaudeChatBrowser:
         messages = []
         for msg in conversation.get('chat_messages', [])[:3]:  # First 3 messages
             sender = "User:" if msg.get('sender') == 'human' else "Claude:"
-            text = msg.get('text', '')
-            
-            # If no text directly available, try to get it from content
-            if not text and 'content' in msg:
-                for content_item in msg['content']:
-                    if content_item.get('type') == 'text':
-                        text = content_item.get('text', '')
-                        break
-            
+            text = get_message_text(msg)
+
             # Truncate message if too long
             if text:
                 if len(text) > 100:
