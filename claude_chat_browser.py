@@ -8,35 +8,40 @@ import shutil
 from typing import List, Dict, Any, Optional
 import curses
 
-# Placeholder the Claude export writes into the flattened `text` field wherever
-# a non-text block (tool use, tool result, thinking) appeared in the message.
-UNSUPPORTED_BLOCK_TEXT = "This block is not supported on your current device yet."
-
-
-def get_message_text(msg: Dict[str, Any]) -> str:
-    """Extract the readable text of a message.
-
-    Prefers the structured `content` block list (joining the text blocks and
-    skipping tool-use/tool-result blocks) over the flattened `text` field,
-    which renders every non-text block as an "unsupported" placeholder.
-    Falls back to `text` with those placeholders stripped.
-    """
-    parts = [
-        item.get('text', '').strip()
-        for item in msg.get('content') or []
-        if item.get('type') == 'text' and item.get('text', '').strip()
-    ]
-    if parts:
-        return '\n\n'.join(parts)
-
-    text = msg.get('text', '')
-    # Remove placeholders, including ones the export wrapped in code fences
-    text = re.sub(r"```\s*" + re.escape(UNSUPPORTED_BLOCK_TEXT) + r"\s*```", "", text)
-    text = text.replace(UNSUPPORTED_BLOCK_TEXT, "")
-    return text.strip()
-
-
 class ClaudeChatBrowser:
+    # Placeholder the Claude export writes into the flattened `text` field wherever
+    # a non-text block (tool use, tool result, thinking) appeared in the message.
+    UNSUPPORTED_BLOCK_TEXT = "This block is not supported on your current device yet."
+
+    @staticmethod
+    def get_message_text(msg: Dict[str, Any]) -> str:
+        """Extract the readable text of a message.
+
+        Prefers the structured `content` block list (joining the text blocks and
+        skipping tool-use/tool-result blocks) over the flattened `text` field,
+        which renders every non-text block as an "unsupported" placeholder.
+        Falls back to `text` with those placeholders stripped.
+        """
+        parts = [
+            item.get('text', '')
+            for item in msg.get('content') or []
+            if item.get('type') == 'text' and item.get('text', '').strip()
+        ]
+        if parts:
+            # Trim only boundary newlines so indentation and trailing spaces
+            # that matter in Markdown survive.
+            return '\n\n'.join(part.strip('\n') for part in parts)
+
+        text = msg.get('text', '')
+        placeholder = re.escape(ClaudeChatBrowser.UNSUPPORTED_BLOCK_TEXT)
+        # Placeholder wrapped in a code fence (optionally with a language tag)
+        text = re.sub(r"```[^\n]*\s*" + placeholder + r"\s*```", "", text)
+        # Placeholder on its own line
+        text = re.sub(r"(?m)^[ \t]*" + placeholder + r"[ \t]*$\n?", "", text)
+        # Inline remnants: replace with a space so surrounding text isn't glued
+        text = text.replace(ClaudeChatBrowser.UNSUPPORTED_BLOCK_TEXT, " ")
+        return text.strip()
+
     def __init__(self, data_dir: str):
         self.data_dir = data_dir
         self.conversations = []
@@ -79,8 +84,8 @@ class ClaudeChatBrowser:
         name = conversation.get('name', '')
         if not name and 'chat_messages' in conversation and conversation['chat_messages']:
             for msg in conversation['chat_messages']:
-                if msg.get('sender') == 'human' and msg.get('text'):
-                    name = msg.get('text', '')[:50]
+                if msg.get('sender') == 'human':
+                    name = self.get_message_text(msg)[:50]
                     if name:
                         break
                         
@@ -144,7 +149,7 @@ class ClaudeChatBrowser:
         # Add messages
         for msg in export_conversation.get('chat_messages', []):
             sender = "**User**:" if msg.get('sender') == 'human' else "**Claude**:"
-            text = get_message_text(msg)
+            text = self.get_message_text(msg)
 
             # Include timestamp if available
             timestamp = ""
@@ -298,7 +303,7 @@ class ClaudeChatBrowser:
         messages = []
         for msg in conversation.get('chat_messages', [])[:3]:  # First 3 messages
             sender = "User:" if msg.get('sender') == 'human' else "Claude:"
-            text = get_message_text(msg)
+            text = self.get_message_text(msg)
 
             # Truncate message if too long
             if text:
