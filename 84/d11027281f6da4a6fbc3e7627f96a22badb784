@@ -1,0 +1,24 @@
+test_message_text.py
+  s_bc4cefbf6db208::t_c59b16784b3b1b 1-34
+claude_chat_browser.py
+  s_bc4cefbf6db208::t_cf2760ce49b1dc 4,11-37
+  s_bc4cefbf6db208::t_ae1a5106444251 147-148
+  s_bc4cefbf6db208::t_c6fa3cac2e9b39 301-302
+  s_bc4cefbf6db208::t_d4d8180d50550b 38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "84d11027281f6da4a6fbc3e7627f96a22badb784",
+  "prompts": {},
+  "sessions": {
+    "s_bc4cefbf6db208": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01ca87d0-7c4b-4c96-91ac-58699792aac6",
+        "model": "claude-fable-5"
+      },
+      "human_author": "davidteren <drteren@gmail.com>"
+    }
+  }
+}
