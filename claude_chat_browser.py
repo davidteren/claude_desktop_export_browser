@@ -48,7 +48,9 @@ class ClaudeChatBrowser:
         try:
             return datetime.datetime.fromisoformat(ts.replace('Z', '+00:00'))
         except (ValueError, AttributeError):
-            return datetime.datetime.min
+            # Must match the tz-awareness of the success path above, or
+            # sorting a mix of parsed and fallback values raises TypeError.
+            return datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
 
     @staticmethod
     def get_current_branch(chat_messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -87,11 +89,14 @@ class ClaudeChatBrowser:
         ordered = []
         visited = set()
         for root in roots:
-            if root.get('uuid') in visited:
+            uid = root.get('uuid')
+            if uid and uid in visited:
                 continue
             path = ClaudeChatBrowser._deepest_leaf_path(root, children_of)
             for node in path:
-                visited.add(node.get('uuid'))
+                node_uid = node.get('uuid')
+                if node_uid:
+                    visited.add(node_uid)
             ordered.extend(path)
 
         return ordered
@@ -105,27 +110,44 @@ class ClaudeChatBrowser:
         `root`, using an iterative post-order pass (not recursion — some
         of these chains run into the hundreds of messages, which risks
         Python's recursion limit).
+
+        Tracks each node's traversal state (unvisited / in-progress /
+        done) so a malformed cyclic parent_message_uuid reference can't
+        cause an infinite loop: encountering a child that's still
+        in-progress means it's an ancestor of the current node, i.e. a
+        cycle, so that edge is simply skipped rather than expanded.
         """
         depth = {}
         best_child = {}
+        state = {}  # uuid -> 'in_progress' | 'done'
 
         stack = [(root, False)]
         while stack:
             node, processed = stack.pop()
             uid = node.get('uuid')
-            kids = children_of.get(uid, [])
+
             if not processed:
+                if state.get(uid) == 'done':
+                    continue  # already fully computed via another path
+                state[uid] = 'in_progress'
                 stack.append((node, True))
-                for kid in kids:
+                for kid in children_of.get(uid, []):
+                    if state.get(kid.get('uuid')) == 'in_progress':
+                        continue  # back-edge — a cycle, not a real child
                     stack.append((kid, False))
             else:
+                kids = [
+                    k for k in children_of.get(uid, [])
+                    if state.get(k.get('uuid')) != 'in_progress'
+                ]
                 if not kids:
                     depth[uid] = 1
                     best_child[uid] = None
                 else:
-                    best = max(kids, key=lambda k: depth[k.get('uuid')])
-                    depth[uid] = 1 + depth[best.get('uuid')]
+                    best = max(kids, key=lambda k: depth.get(k.get('uuid'), 0))
+                    depth[uid] = 1 + depth.get(best.get('uuid'), 0)
                     best_child[uid] = best
+                state[uid] = 'done'
 
         path = []
         current = root
