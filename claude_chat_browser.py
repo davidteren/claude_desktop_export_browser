@@ -4,8 +4,8 @@ import os
 import re
 import sys
 import datetime
-import shutil
-from typing import List, Dict, Any, Optional
+from collections import defaultdict
+from typing import List, Dict, Any
 import curses
 
 class ClaudeChatBrowser:
@@ -41,6 +41,120 @@ class ClaudeChatBrowser:
         # Inline remnants: replace with a space so surrounding text isn't glued
         text = text.replace(ClaudeChatBrowser.UNSUPPORTED_BLOCK_TEXT, " ")
         return text.strip()
+
+    @staticmethod
+    def _parse_time(msg: Dict[str, Any]) -> datetime.datetime:
+        ts = msg.get('created_at') or ''
+        try:
+            return datetime.datetime.fromisoformat(ts.replace('Z', '+00:00'))
+        except (ValueError, AttributeError):
+            # Must match the tz-awareness of the success path above, or
+            # sorting a mix of parsed and fallback values raises TypeError.
+            return datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
+
+    @staticmethod
+    def get_current_branch(chat_messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Reconstruct the active conversation thread from Claude's
+        branching message tree.
+
+        The most recent created_at doesn't always work. Working on the 
+        assumption that the live conversation is whichever path keeps 
+        getting extended. ie. The single deepest root-to-leaf chain.
+
+        Long conversations aren't always one fully connected tree, either.
+        Sometimes a new "root" can appear partway through. Walk every such 
+        fragment, in the order its root was created, and concatenate them 
+        so nothing after a break gets lost.
+        """
+        if not chat_messages:
+            return []
+
+        by_uuid = {m['uuid']: m for m in chat_messages if m.get('uuid')}
+        children_of = defaultdict(list)
+        roots = []
+        for m in chat_messages:
+            parent = m.get('parent_message_uuid')
+            if parent and parent in by_uuid:
+                children_of[parent].append(m)
+            else:
+                roots.append(m)
+
+        if not roots:
+            # Malformed/unexpected tree shape — fall back to a flat
+            # chronological sort rather than silently dropping everything.
+            return sorted(chat_messages, key=ClaudeChatBrowser._parse_time)
+
+        roots.sort(key=ClaudeChatBrowser._parse_time)
+
+        ordered = []
+        visited = set()
+        for root in roots:
+            uid = root.get('uuid')
+            if uid and uid in visited:
+                continue
+            path = ClaudeChatBrowser._deepest_leaf_path(root, children_of)
+            for node in path:
+                node_uid = node.get('uuid')
+                if node_uid:
+                    visited.add(node_uid)
+            ordered.extend(path)
+
+        return ordered
+
+    @staticmethod
+    def _deepest_leaf_path(
+        root: Dict[str, Any],
+        children_of: Dict[str, List[Dict[str, Any]]],
+    ) -> List[Dict[str, Any]]:
+        """Finds the longest root-to-leaf chain in the subtree rooted at
+        `root`, using an iterative post-order pass (not recursion — some
+        of these chains run into the hundreds of messages, which risks
+        Python's recursion limit).
+
+        Tracks each node's traversal state (unvisited / in-progress /
+        done) so a malformed cyclic parent_message_uuid reference can't
+        cause an infinite loop: encountering a child that's still
+        in-progress means it's an ancestor of the current node, i.e. a
+        cycle, so that edge is simply skipped rather than expanded.
+        """
+        depth = {}
+        best_child = {}
+        state = {}  # uuid -> 'in_progress' | 'done'
+
+        stack = [(root, False)]
+        while stack:
+            node, processed = stack.pop()
+            uid = node.get('uuid')
+
+            if not processed:
+                if state.get(uid) == 'done':
+                    continue  # already fully computed via another path
+                state[uid] = 'in_progress'
+                stack.append((node, True))
+                for kid in children_of.get(uid, []):
+                    if state.get(kid.get('uuid')) == 'in_progress':
+                        continue  # back-edge — a cycle, not a real child
+                    stack.append((kid, False))
+            else:
+                kids = [
+                    k for k in children_of.get(uid, [])
+                    if state.get(k.get('uuid')) != 'in_progress'
+                ]
+                if not kids:
+                    depth[uid] = 1
+                    best_child[uid] = None
+                else:
+                    best = max(kids, key=lambda k: depth.get(k.get('uuid'), 0))
+                    depth[uid] = 1 + depth.get(best.get('uuid'), 0)
+                    best_child[uid] = best
+                state[uid] = 'done'
+
+        path = []
+        current = root
+        while current is not None:
+            path.append(current)
+            current = best_child.get(current.get('uuid'))
+        return path
 
     def __init__(self, data_dir: str):
         self.data_dir = data_dir
@@ -102,8 +216,10 @@ class ClaudeChatBrowser:
             except:
                 pass
                 
-        # Count messages
-        msg_count = len(conversation.get('chat_messages', []))
+        # Count messages on the currently-active branch only, so this
+        # matches what actually gets exported rather than counting every
+        # superseded retry/edit too.
+        msg_count = len(self.get_current_branch(conversation.get('chat_messages', [])))
         
         return f"{date_str} | {msg_count} msgs | {name}"
     
@@ -130,16 +246,14 @@ class ClaudeChatBrowser:
         md_file_path = os.path.join(self.export_dir, md_filename)
         json_file_path = os.path.join(self.export_dir, json_filename)
         
-        # Create a copy of the conversation to sort messages by date
+        # Create a copy of the conversation, keeping only the messages on
+        # the currently-active branch (dropping superseded retries/edits),
+        # in the order they occur along that single thread.
         export_conversation = conversation.copy()
-        
-        # Sort messages by creation date
         if 'chat_messages' in export_conversation:
-            sorted_messages = sorted(
-                export_conversation['chat_messages'], 
-                key=lambda x: x.get('created_at', '0')
+            export_conversation['chat_messages'] = self.get_current_branch(
+                export_conversation['chat_messages']
             )
-            export_conversation['chat_messages'] = sorted_messages
         
         # Format conversation as markdown
         markdown = [f"# {name or 'Claude Chat Conversation'}\n"]
@@ -290,7 +404,8 @@ class ClaudeChatBrowser:
             except:
                 pass
                 
-        msg_count = len(conversation.get('chat_messages', []))
+        current_branch = self.get_current_branch(conversation.get('chat_messages', []))
+        msg_count = len(current_branch)
         
         info = [
             f"Title: {name}",
@@ -301,7 +416,7 @@ class ClaudeChatBrowser:
         
         # Display first few messages
         messages = []
-        for msg in conversation.get('chat_messages', [])[:3]:  # First 3 messages
+        for msg in current_branch[:3]:  # First 3 messages
             sender = "User:" if msg.get('sender') == 'human' else "Claude:"
             text = self.get_message_text(msg)
 
